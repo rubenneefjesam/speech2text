@@ -10,7 +10,6 @@ from groq import Groq
 from groq import Groq
 
 def get_groq_client():
-    import os, streamlit as st
     key = (st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY") or "").strip()
     if not (key and key.startswith("gsk_")):
         st.error("Geen geldige GROQ_API_KEY gevonden (verwacht prefix gsk_).")
@@ -18,8 +17,7 @@ def get_groq_client():
     return Groq(api_key=key)
 
 client = get_groq_client()
-
-if client and uploaded_file is not None:
+st.caption(f"Secrets geladen: {bool(client)}")
     audio_bytes = uploaded_file.getvalue()  # Streamlit file -> bytes
     try:
         resp = client.audio.transcriptions.create(
