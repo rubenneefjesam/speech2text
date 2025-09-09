@@ -1,2 +1,6 @@
 streamlit
+<<<<<<< HEAD
 openai>=1.40.0
+=======
+groq
+>>>>>>> 6005b77 (Yes)

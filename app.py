@@ -20,6 +20,16 @@ if not _groq:
 else:
     client = Groq(api_key=_groq)
 
+with st.expander("🔧 Diagnose API", expanded=False):
+    key_ok = bool(client)
+    st.write("Client init:", key_ok)
+    if client and st.button("Test Groq models.list()"):
+        try:
+            models = client.models.list()
+            st.success(f"OK. Models: {[m.id for m in models.data][:5]}")
+        except Exception as e:
+            st.error(f"API test failed: {e}")
+            
 # (optioneel) sanity check in UI
 st.caption(f"Secrets geladen: {bool(_groq)}")
 
@@ -58,6 +68,10 @@ elif page == "Upload & Transcriptie":
         "Upload extra context (agenda, definities, afkortingen)", 
         type=["txt", "json"]
     )
+
+if st.button("🗑️ Wis transcriptie"):
+    st.session_state.pop("transcript", None)
+    st.success("Transcriptie gewist.")
 
     # Context verwerken
     context_data = None
@@ -125,6 +139,8 @@ elif page == "Upload & Transcriptie":
                 context_data if isinstance(context_data, str) else str(context_data)
             )
 
+st.session_state["transcript"] = transcript
+
         st.success("Transcriptie afgerond ✅")
 
         tab1, tab2 = st.tabs(["📝 Transcriptie", "⬇️ Download"])
@@ -148,22 +164,24 @@ elif page == "Upload & Transcriptie":
 # --- Analyse pagina ---
 elif page == "Analyse":
     st.title("📊 Analyse van transcriptie")
-    st.write("Hier kun je een eenvoudige analyse uitvoeren op de tekst.")
 
-    transcript = "Dit is een test transcriptie van jouw audio. Audio is geweldig en transcriptie werkt goed."
-    if transcript:
-        words = transcript.split()
-        word_count = len(words)
-        st.metric("Aantal woorden", word_count)
+    transcript = st.session_state.get("transcript")
+    if not transcript:
+        st.info("Nog geen transcriptie beschikbaar. Ga eerst naar **Upload & Transcriptie** en maak een transcriptie.")
+        st.stop()
 
-        with st.expander("Woordfrequentie tabel"):
-            freq = {}
-            for w in words:
-                w = w.lower().strip(".,!?")
-                freq[w] = freq.get(w, 0) + 1
-            st.write(freq)
+    words = transcript.split()
+    word_count = len(words)
+    st.metric("Aantal woorden", word_count)
 
-        st.bar_chart([len(w) for w in words])
+    with st.expander("Woordfrequentie tabel"):
+        freq = {}
+        for w in words:
+            w = w.lower().strip(".,!?")
+            freq[w] = freq.get(w, 0) + 1
+        st.write(freq)
+
+    st.bar_chart([len(w) for w in words])
 
 # --- Over pagina ---
 elif page == "Over":
