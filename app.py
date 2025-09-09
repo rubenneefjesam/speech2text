@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import time
 import json
@@ -5,12 +6,23 @@ from io import StringIO
 import tempfile
 from groq import Groq
 
-# --- Client initialiseren ---
-if "GROQ_API_KEY" not in st.secrets:
-    st.warning("⚠️ Geen GROQ_API_KEY gevonden. Voeg die toe in .streamlit/secrets.toml (lokaal) of in Streamlit Cloud Secrets.")
+# --- Groq client init (werkt in Cloud + lokaal fallback via ENV) ---
+def get_groq_key():
+    try:
+        return st.secrets["GROQ_API_KEY"]   # Cloud of .streamlit/secrets.toml
+    except Exception:
+        return os.getenv("GROQ_API_KEY")    # Fallback voor lokaal
+
+_groq = get_groq_key()
+if not _groq:
+    st.warning("⚠️ Geen GROQ_API_KEY gevonden. In Cloud: Settings → Secrets. Lokaal: .streamlit/secrets.toml of export.")
     client = None
 else:
-    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    client = Groq(api_key=_groq)
+
+# (optioneel) sanity check in UI
+st.caption(f"Secrets geladen: {bool(_groq)}")
+
 
 # --- Sidebar ---
 st.sidebar.image(
