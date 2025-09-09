@@ -2,6 +2,10 @@ import streamlit as st
 import time
 import json
 from io import StringIO
+from groq import Groq
+
+# Client initialiseren
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- Sidebar ---
 st.sidebar.image(
