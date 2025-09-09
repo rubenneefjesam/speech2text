@@ -6,35 +6,18 @@ from io import StringIO
 import tempfile
 from groq import Groq
 
-# --- Groq client init (werkt in Cloud + lokaal fallback via ENV) ---
+# --- Groq client init (Cloud secrets of ENV fallback) ---
 def get_groq_key():
     try:
-        return st.secrets["GROQ_API_KEY"]   # Cloud of .streamlit/secrets.toml
+        return st.secrets["GROQ_API_KEY"]
     except Exception:
-        return os.getenv("GROQ_API_KEY")    # Fallback voor lokaal
+        return os.getenv("GROQ_API_KEY")
 
 _groq = get_groq_key()
-if not _groq:
-    st.warning("⚠️ Geen GROQ_API_KEY gevonden. In Cloud: Settings → Secrets. Lokaal: .streamlit/secrets.toml of export.")
-    client = None
-else:
-    client = Groq(api_key=_groq)
-
-with st.expander("🔧 Diagnose API", expanded=False):
-    key_ok = bool(client)
-    st.write("Client init:", key_ok)
-    if client and st.button("Test Groq models.list()"):
-        try:
-            models = client.models.list()
-            st.success(f"OK. Models: {[m.id for m in models.data][:5]}")
-        except Exception as e:
-            st.error(f"API test failed: {e}")
-            
-# (optioneel) sanity check in UI
+client = Groq(api_key=_groq) if _groq else None
 st.caption(f"Secrets geladen: {bool(_groq)}")
 
-
-# --- Sidebar ---
+# --- Sidebar / Router ---
 st.sidebar.image(
     "https://streamlit.io/images/brand/streamlit-logo-secondary-colormark-darktext.png",
     width=160
@@ -42,36 +25,42 @@ st.sidebar.image(
 st.sidebar.title("🎤 Speech2Text Demo")
 page = st.sidebar.radio("📑 Pagina", ["Home", "Upload & Transcriptie", "Analyse", "Over"])
 
-# --- Home pagina ---
+# --- Diagnose (optioneel) ---
+with st.expander("🔧 Diagnose API", expanded=False):
+    st.write("Client init:", bool(client))
+    if client and st.button("Test Groq models.list()"):
+        try:
+            models = client.models.list()
+            st.success(f"OK. Models: {[m.id for m in models.data][:5]}")
+        except Exception as e:
+            st.error(f"API test failed: {e}")
+
+# --- Home ---
 if page == "Home":
     st.title("✨ Welkom bij Speech2Text")
     st.markdown(
         """
         Met deze demo kun je eenvoudig een **audiobestand** uploaden en 
-        een **verrijkte transcriptie** terugkrijgen.  
-
-        🔹 Upload je bestand via de **Upload & Transcriptie** pagina  
-        🔹 Voeg context en definities toe om het transcript slimmer te maken  
-        🔹 Bekijk woordfrequenties en statistieken bij **Analyse**  
-        🔹 Leer meer bij **Over**  
+        een **verrijkte transcriptie** terugkrijgen.
         """
     )
     st.success("Kies links een pagina om te starten!")
 
-# --- Upload & Transcriptie pagina ---
+# --- Upload & Transcriptie ---
 elif page == "Upload & Transcriptie":
     st.title("📂 Upload je audio + context")
     st.write("Upload een audiobestand en (optioneel) extra context of definities.")
 
+    # Uploads
     audio_file = st.file_uploader("Upload audio", type=["wav", "mp3", "m4a"])
     context_file = st.file_uploader(
-        "Upload extra context (agenda, definities, afkortingen)", 
-        type=["txt", "json"]
+        "Upload extra context (agenda, definities, afkortingen)", type=["txt", "json"]
     )
 
-if st.button("🗑️ Wis transcriptie"):
-    st.session_state.pop("transcript", None)
-    st.success("Transcriptie gewist.")
+    # Wis-knop (reset sessie)
+    if st.button("🗑️ Wis transcriptie"):
+        st.session_state.pop("transcript", None)
+        st.success("Transcriptie gewist.")
 
     # Context verwerken
     context_data = None
@@ -89,81 +78,82 @@ if st.button("🗑️ Wis transcriptie"):
         except Exception as e:
             st.warning(f"Kon context niet lezen: {e}")
 
-    # Functie voor transcriptie
+    # Helper: transcriptie met simpele retry
     def transcribe_with_retry(path, model="whisper-large-v3", retries=3, backoff=2.0):
         for i in range(retries):
             try:
                 with open(path, "rb") as f:
-                    tr = client.audio.transcriptions.create(
-                        model=model,
-                        file=f
-                    )
+                    tr = client.audio.transcriptions.create(model=model, file=f)
                 return tr.text
             except Exception as e:
                 msg = str(e)
-                if "429" in msg or "rate" in msg.lower():
-                    if i < retries - 1:
-                        time.sleep(backoff * (2 ** i))
-                        continue
+                if ("429" in msg or "rate" in msg.lower()) and i < retries - 1:
+                    time.sleep(backoff * (2 ** i))
+                    continue
                 raise
 
-   # Transcriptie uitvoeren
-if audio_file and client:
-    size_mb = len(audio_file.getvalue()) / (1024 * 1024)
-    if size_mb > 25:
-        st.error(f"Bestand is {size_mb:.1f} MB — splits het in <25 MB chunks aub.")
-        st.stop()
-
-    st.audio(audio_file)
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix="." + audio_file.name.split(".")[-1]) as tmp:
-        tmp.write(audio_file.getvalue())
-        tmp_path = tmp.name
-
-    st.download_button(
-        "⬇️ Download originele opname",
-        data=audio_file.getvalue(),
-        file_name=audio_file.name or "opname.wav",
-        mime=audio_file.type or "audio/wav"
-    )
-
-    with st.spinner("Bezig met transcriberen via Groq..."):
-        try:
-            transcript = transcribe_with_retry(tmp_path)
-        except Exception as e:
-            st.error(f"Transcriptie mislukt: {e}")
+    # Transcriptie uitvoeren
+    if audio_file and client:
+        size_mb = len(audio_file.getvalue()) / (1024 * 1024)
+        if size_mb > 25:
+            st.error(f"Bestand is {size_mb:.1f} MB — splits het in < 25 MB chunks aub.")
             st.stop()
 
-    if context_data:
-        transcript += "\n\n---\n💡 Toegevoegde context:\n" + (
-            context_data if isinstance(context_data, str) else str(context_data)
-        )
+        st.audio(audio_file)
 
-    st.session_state["transcript"] = transcript
+        # veilig opslaan
+        with tempfile.NamedTemporaryFile(delete=False, suffix="." + audio_file.name.split(".")[-1]) as tmp:
+            tmp.write(audio_file.getvalue())
+            tmp_path = tmp.name
 
-    st.success("Transcriptie afgerond ✅")
-
-    tab1, tab2 = st.tabs(["📝 Transcriptie", "⬇️ Download"])
-    with tab1:
-        with st.expander("Klik om transcriptie te tonen", expanded=True):
-            st.write(transcript)
-    with tab2:
+        # download origineel
         st.download_button(
-            "Download transcriptie als TXT",
-            data=transcript,
-            file_name="transcript.txt",
-            mime="text/plain"
+            "⬇️ Download originele opname",
+            data=audio_file.getvalue(),
+            file_name=audio_file.name or "opname.wav",
+            mime=audio_file.type or "audio/wav"
         )
 
-    st.progress(100)
+        # echte transcriptie (Groq)
+        with st.spinner("Bezig met transcriberen via Groq..."):
+            try:
+                transcript = transcribe_with_retry(tmp_path)
+            except Exception as e:
+                st.error(f"Transcriptie mislukt: {e}")
+                st.stop()
 
-elif not client:
-    st.error("Geen Groq-client actief. Controleer je API key.")
-else:
-    st.info("⤴️ Upload eerst een audio-bestand (WAV, MP3, M4A).")
+        # verrijking met context (simpel)
+        if context_data:
+            transcript += "\n\n---\n💡 Toegevoegde context:\n" + (
+                context_data if isinstance(context_data, str) else str(context_data)
+            )
 
+        # bewaren voor Analyse-pagina
+        st.session_state["transcript"] = transcript
 
-# --- Analyse pagina ---
+        st.success("Transcriptie afgerond ✅")
+
+        # tonen + downloaden
+        tab1, tab2 = st.tabs(["📝 Transcriptie", "⬇️ Download"])
+        with tab1:
+            with st.expander("Klik om transcriptie te tonen", expanded=True):
+                st.write(transcript)
+        with tab2:
+            st.download_button(
+                "Download transcriptie als TXT",
+                data=transcript,
+                file_name="transcript.txt",
+                mime="text/plain"
+            )
+
+        st.progress(100)
+
+    elif not client:
+        st.error("Geen Groq-client actief. Controleer je API key.")
+    else:
+        st.info("⤴️ Upload eerst een audio-bestand (WAV, MP3, M4A).")
+
+# --- Analyse ---
 elif page == "Analyse":
     st.title("📊 Analyse van transcriptie")
 
@@ -185,7 +175,7 @@ elif page == "Analyse":
 
     st.bar_chart([len(w) for w in words])
 
-# --- Over pagina ---
+# --- Over ---
 elif page == "Over":
     st.title("ℹ️ Over deze app")
     st.markdown(
@@ -193,29 +183,11 @@ elif page == "Over":
         Deze demo is gebouwd met **Streamlit** en laat zien hoe je 
         **spraak → tekst → begrip** kunt maken.  
 
-        ### 💡 Waarom deze Speech-to-Text tool zo krachtig is
-        1. **Meer dan alleen een transcript**  
-           Niet enkel *“wat is er gezegd”*, maar ook *hoe je het beter begrijpt*.  
-           Het transcript wordt slim aangevuld met extra informatie en structuur.  
-
-        2. **Context toevoegen**  
-           Je kunt vooraf notities of agendapunten van de vergadering toevoegen.  
-           De tool gebruikt die context om uitspraken beter te plaatsen.  
-
-        3. **Definities en afkortingen**  
-           Vaak worden in meetings veel afkortingen of jargon gebruikt.  
-           Jij kunt een lijst met **definities/afkortingen** uploaden.  
-           De tool herkent ze en zet in het transcript meteen de juiste betekenis erbij.  
-
-        4. **Verrijkte transcriptie = bruikbare notulen**  
-           In plaats van een platte tekst krijg je een **leesbaar en begrijpelijk document**.  
-           Minder tijd kwijt aan corrigeren of puzzelen wat iemand bedoelde.  
-
-        5. **Schaalbaarheid en consistentie**  
-           Iedere meeting of call krijgt dezelfde kwaliteit.  
-
-        ---
-        👉 Kortom: dit is **niet zomaar speech-to-text**, maar **speech-to-understanding**.  
+        **Waarom waardevol**
+        - Meer dan alleen *wat is er gezegd* → ook *begrip en context*.
+        - Voeg **context/definities/afkortingen** toe voor scherpere transcripties.
+        - Sneller naar bruikbare notulen, besluiten en actiepunten.
+        - Consistente kwaliteit bij elke meeting.
         """
     )
     st.success("Klaar voor de volgende stap 🚀")
