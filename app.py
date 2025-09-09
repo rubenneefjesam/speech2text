@@ -107,59 +107,61 @@ if st.button("🗑️ Wis transcriptie"):
                         continue
                 raise
 
-    # Transcriptie uitvoeren
-    if audio_file and client:
-        size_mb = len(audio_file.getvalue()) / (1024 * 1024)
-        if size_mb > 25:
-            st.error(f"Bestand is {size_mb:.1f} MB — splits het in <25 MB chunks aub.")
+   # Transcriptie uitvoeren
+if audio_file and client:
+    size_mb = len(audio_file.getvalue()) / (1024 * 1024)
+    if size_mb > 25:
+        st.error(f"Bestand is {size_mb:.1f} MB — splits het in <25 MB chunks aub.")
+        st.stop()
+
+    st.audio(audio_file)
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix="." + audio_file.name.split(".")[-1]) as tmp:
+        tmp.write(audio_file.getvalue())
+        tmp_path = tmp.name
+
+    st.download_button(
+        "⬇️ Download originele opname",
+        data=audio_file.getvalue(),
+        file_name=audio_file.name or "opname.wav",
+        mime=audio_file.type or "audio/wav"
+    )
+
+    with st.spinner("Bezig met transcriberen via Groq..."):
+        try:
+            transcript = transcribe_with_retry(tmp_path)
+        except Exception as e:
+            st.error(f"Transcriptie mislukt: {e}")
             st.stop()
 
-        st.audio(audio_file)
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix="." + audio_file.name.split(".")[-1]) as tmp:
-            tmp.write(audio_file.getvalue())
-            tmp_path = tmp.name
-
-        st.download_button(
-            "⬇️ Download originele opname",
-            data=audio_file.getvalue(),
-            file_name=audio_file.name or "opname.wav",
-            mime=audio_file.type or "audio/wav"
+    if context_data:
+        transcript += "\n\n---\n💡 Toegevoegde context:\n" + (
+            context_data if isinstance(context_data, str) else str(context_data)
         )
 
-        with st.spinner("Bezig met transcriberen via Groq..."):
-            try:
-                transcript = transcribe_with_retry(tmp_path)
-            except Exception as e:
-                st.error(f"Transcriptie mislukt: {e}")
-                st.stop()
+    st.session_state["transcript"] = transcript
 
-        if context_data:
-            transcript += "\n\n---\n💡 Toegevoegde context:\n" + (
-                context_data if isinstance(context_data, str) else str(context_data)
-            )
+    st.success("Transcriptie afgerond ✅")
 
-st.session_state["transcript"] = transcript
+    tab1, tab2 = st.tabs(["📝 Transcriptie", "⬇️ Download"])
+    with tab1:
+        with st.expander("Klik om transcriptie te tonen", expanded=True):
+            st.write(transcript)
+    with tab2:
+        st.download_button(
+            "Download transcriptie als TXT",
+            data=transcript,
+            file_name="transcript.txt",
+            mime="text/plain"
+        )
 
-        st.success("Transcriptie afgerond ✅")
+    st.progress(100)
 
-        tab1, tab2 = st.tabs(["📝 Transcriptie", "⬇️ Download"])
-        with tab1:
-            with st.expander("Klik om transcriptie te tonen", expanded=True):
-                st.write(transcript)
-        with tab2:
-            st.download_button(
-                "Download transcriptie als TXT",
-                data=transcript,
-                file_name="transcript.txt",
-                mime="text/plain"
-            )
+elif not client:
+    st.error("Geen Groq-client actief. Controleer je API key.")
+else:
+    st.info("⤴️ Upload eerst een audio-bestand (WAV, MP3, M4A).")
 
-        st.progress(100)
-    elif not client:
-        st.error("Geen Groq-client actief. Controleer je API key.")
-    else:
-        st.info("⤴️ Upload eerst een audio-bestand (WAV, MP3, M4A).")
 
 # --- Analyse pagina ---
 elif page == "Analyse":
