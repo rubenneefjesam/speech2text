@@ -1,14 +1,13 @@
 import os
-import streamlit as st
-import time
 import json
-from io import StringIO
 import tempfile
+from io import StringIO
+
+import streamlit as st
 from groq import Groq
+
 
 # --- Groq client init (Cloud secrets of ENV fallback) ---
-from groq import Groq
-
 def get_groq_client():
     key = (st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY") or "").strip()
     if not (key and key.startswith("gsk_")):
@@ -16,26 +15,31 @@ def get_groq_client():
         return None
     return Groq(api_key=key)
 
-client = get_groq_client()
-st.caption(f"Secrets geladen: {bool(client)}")
-    audio_bytes = uploaded_file.getvalue()  # Streamlit file -> bytes
-    try:
-        resp = client.audio.transcriptions.create(
-            model="distil-whisper-large-v3",     # of "whisper-large-v3"
-            file=("audio.wav", audio_bytes),     # (bestandsnaam, bytes)
-            response_format="verbose_json",      # optioneel
-            temperature=0.0,                     # optioneel
-            language="nl"                        # hint; optioneel
-        )
-        transcript = resp.text  # of resp["text"] afhankelijk van SDK-versie
-        st.success("Transcriptie gelukt!")
-        st.write(transcript)
-    except Exception as e:
-        st.error(f"Transcriptie mislukt: {e}")
 
-_groq = get_groq_key()
-client = Groq(api_key=_groq) if _groq else None
-st.caption(f"Secrets geladen: {bool(_groq)}")
+client = get_groq_client()
+st.caption(f"Groq client actief: {bool(client)}")
+
+
+# --- Helperfunctie: transcribe ---
+def transcribe_file(audio_file, model="whisper-large-v3"):
+    """
+    Verwacht een Streamlit-uploaded file.
+    Schrijft dit tijdelijk weg en stuurt naar Groq Whisper model.
+    Retourneert transcriptie als tekst.
+    """
+    with tempfile.NamedTemporaryFile(delete=False, suffix="." + audio_file.name.split(".")[-1]) as tmp:
+        tmp.write(audio_file.getvalue())
+        tmp_path = tmp.name
+
+    with open(tmp_path, "rb") as f:
+        resp = client.audio.transcriptions.create(
+            model=model,
+            file=f,
+            response_format="json",
+            temperature=0.0,
+            language="nl"
+        )
+    return resp.text
 
 # --- Sidebar / Router ---
 st.sidebar.image(
