@@ -7,11 +7,33 @@ import tempfile
 from groq import Groq
 
 # --- Groq client init (Cloud secrets of ENV fallback) ---
-def get_groq_key():
+from groq import Groq
+
+def get_groq_client():
+    import os, streamlit as st
+    key = (st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY") or "").strip()
+    if not (key and key.startswith("gsk_")):
+        st.error("Geen geldige GROQ_API_KEY gevonden (verwacht prefix gsk_).")
+        return None
+    return Groq(api_key=key)
+
+client = get_groq_client()
+
+if client and uploaded_file is not None:
+    audio_bytes = uploaded_file.getvalue()  # Streamlit file -> bytes
     try:
-        return st.secrets["GROQ_API_KEY"]
-    except Exception:
-        return os.getenv("GROQ_API_KEY")
+        resp = client.audio.transcriptions.create(
+            model="distil-whisper-large-v3",     # of "whisper-large-v3"
+            file=("audio.wav", audio_bytes),     # (bestandsnaam, bytes)
+            response_format="verbose_json",      # optioneel
+            temperature=0.0,                     # optioneel
+            language="nl"                        # hint; optioneel
+        )
+        transcript = resp.text  # of resp["text"] afhankelijk van SDK-versie
+        st.success("Transcriptie gelukt!")
+        st.write(transcript)
+    except Exception as e:
+        st.error(f"Transcriptie mislukt: {e}")
 
 _groq = get_groq_key()
 client = Groq(api_key=_groq) if _groq else None
