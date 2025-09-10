@@ -51,51 +51,20 @@ if page == "Home":
 # ======================================
 elif page == "Upload & Transcriptie":
     st.title("📂 Upload je audio + context")
-
-    audio_file = st.file_uploader("🎵 Upload audio", type=["wav", "mp3", "m4a"])
-    context_file = st.file_uploader("📑 Upload extra context (optioneel: txt/json)", type=["txt", "json"])
-
-    # (optioneel) toon context
-    context_data = None
-    if context_file:
-        try:
-            if context_file.type == "application/json":
-                context_data = json.load(context_file)
-                st.json(context_data)
-            else:
-                context_data = context_file.getvalue().decode("utf-8", errors="ignore")
-                st.text((context_data[:500] + "…") if len(context_data) > 500 else context_data)
-        except Exception as e:
-            st.warning(f"Kon context niet lezen: {e}")
+    audio_file = st.file_uploader("🎵 Upload audio", type=["wav","mp3","m4a"])
 
     if audio_file:
         st.audio(audio_file)
         st.info("Transcriberen…")
-
-        # Bel Groq Whisper – belangrijk: (bestandsnaam, bytes)
         try:
             res = client.audio.transcriptions.create(
-                model="whisper-large-v3",              # of: "whisper-large-v3-turbo"
-                file=(audio_file.name, audio_file.read()),
-                # language="nl",                        # optioneel
+                model="whisper-large-v3",                   # of whisper-large-v3-turbo
+                file=(audio_file.name, audio_file.read())   # exact zoals in transcribe_test.py
             )
             transcript = res.text
-
-            if context_data:
-                transcript += "\n\n---\n💡 Toegevoegde context:\n" + (
-                    context_data if isinstance(context_data, str) else json.dumps(context_data, ensure_ascii=False, indent=2)
-                )
-
-            st.session_state["transcript"] = transcript
             st.success("Transcriptie afgerond ✅")
             st.write(transcript)
-
-            st.download_button(
-                "⬇️ Download transcriptie (TXT)",
-                data=transcript,
-                file_name="transcript.txt",
-                mime="text/plain"
-            )
+            st.download_button("⬇️ Download (TXT)", transcript, "transcript.txt", "text/plain")
         except Exception as e:
             st.error(f"Transcriptie mislukt: {e}")
 
