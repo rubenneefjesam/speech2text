@@ -9,26 +9,16 @@ from groq import Groq
 # ============================================================
 # Groq client init (werkt in zowel Cloud als Codespaces/lokaal)
 # ============================================================
+st.write("Key ok?", True)
 
 def get_groq_client():
-    # Eerst proberen via ENV (Codespaces / lokaal)
-    key = (os.getenv("GROQ_API_KEY") or "").strip()
-
-    # Daarna proberen via Streamlit secrets (Cloud)
+    key = (os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY") or "").strip()
     if not key:
-        try:
-            key = (st.secrets["GROQ_API_KEY"] or "").strip()
-        except Exception:
-            key = ""
-
-    if not (key and key.startswith("gsk_")):
-        st.error("❌ Geen geldige GROQ_API_KEY gevonden. Zet hem in ENV of Streamlit Secrets.")
-        return None
-
-    return Groq(api_key=key)
+        st.error("⚠️ GROQ_API_KEY niet gevonden (ENV of .streamlit/secrets.toml).")
+        st.stop()
+    return Groq(api_key=key)   # << dit is de fix
 
 client = get_groq_client()
-st.caption(f"🔑 Groq client actief: {bool(client)}")
 
 # ======================================
 # Sidebar navigatie
@@ -54,6 +44,26 @@ if page == "Home":
     )
     st.success("Kies links een pagina om te starten!")
 
+    st.header("Transcribeer audio met Groq Whisper v3")
+
+client = get_groq_client()
+st.write("Key gevonden?", True)  # debug: laat zien dat key is geladen
+
+uploaded = st.file_uploader("Upload audio", type=["mp3", "wav", "m4a"])
+if uploaded:
+    st.info("Transcriberen…")
+    audio_bytes = uploaded.read()
+    try:
+        res = client.audio.transcriptions.create(
+            model="whisper-large-v3",              # of: "whisper-large-v3-turbo"
+            file=(uploaded.name, audio_bytes)      # (bestandsnaam, bytes) is verplicht
+            # language="nl",                       # optioneel
+        )
+        st.success("Klaar!")
+        st.write(res.text)
+    except Exception as e:
+        st.error(f"Transcriptie mislukt: {e}")
+
 # ======================================
 # Upload & Transcriptie pagina
 # ======================================
@@ -61,14 +71,9 @@ elif page == "Upload & Transcriptie":
     st.title("📂 Upload je audio + context")
 
     audio_file = st.file_uploader("🎵 Upload audio", type=["wav", "mp3", "m4a"])
-    context_file = st.file_uploader("📑 Upload extra context (agenda, definities, afkortingen)", type=["txt", "json"])
+    context_file = st.file_uploader("📑 Upload extra context (optioneel: txt/json)", type=["txt", "json"])
 
-    # Wis oude transcriptie
-    if st.button("🗑️ Wis transcriptie"):
-        st.session_state.pop("transcript", None)
-        st.success("Transcriptie gewist.")
-
-    # Context verwerken
+    # (optioneel) toon context
     context_data = None
     if context_file:
         try:
@@ -76,56 +81,41 @@ elif page == "Upload & Transcriptie":
                 context_data = json.load(context_file)
                 st.json(context_data)
             else:
-                stringio = StringIO(context_file.getvalue().decode("utf-8"))
-                context_data = stringio.read()
-                st.text(context_data[:500] + ("…" if len(context_data) > 500 else ""))
+                context_data = context_file.getvalue().decode("utf-8", errors="ignore")
+                st.text((context_data[:500] + "…") if len(context_data) > 500 else context_data)
         except Exception as e:
             st.warning(f"Kon context niet lezen: {e}")
 
-    # Transcriptie functie
-    def transcribe(path, model="distil-whisper-large-v3"):
-        with open(path, "rb") as f:
-            resp = client.audio.transcriptions.create(
-                model=model,
-                file=f,
-                language="nl"
-            )
-        return resp.text
-
-    if audio_file and client:
+    if audio_file:
         st.audio(audio_file)
+        st.info("Transcriberen…")
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix="." + audio_file.name.split(".")[-1]) as tmp:
-            tmp.write(audio_file.getvalue())
-            tmp_path = tmp.name
-
-        with st.spinner("Bezig met transcriberen via Groq..."):
-            try:
-                transcript = transcribe(tmp_path)
-            except Exception as e:
-                st.error(f"Transcriptie mislukt: {e}")
-                st.stop()
-
-        if context_data:
-            transcript += "\n\n---\n💡 Toegevoegde context:\n" + (
-                context_data if isinstance(context_data, str) else str(context_data)
+        # Bel Groq Whisper – belangrijk: (bestandsnaam, bytes)
+        try:
+            res = client.audio.transcriptions.create(
+                model="whisper-large-v3",              # of: "whisper-large-v3-turbo"
+                file=(audio_file.name, audio_file.read()),
+                # language="nl",                        # optioneel
             )
+            transcript = res.text
 
-        st.session_state["transcript"] = transcript
+            if context_data:
+                transcript += "\n\n---\n💡 Toegevoegde context:\n" + (
+                    context_data if isinstance(context_data, str) else json.dumps(context_data, ensure_ascii=False, indent=2)
+                )
 
-        st.success("Transcriptie afgerond ✅")
+            st.session_state["transcript"] = transcript
+            st.success("Transcriptie afgerond ✅")
+            st.write(transcript)
 
-        tab1, tab2 = st.tabs(["📝 Transcriptie", "⬇️ Download"])
-        with tab1:
-            with st.expander("Klik om transcriptie te tonen", expanded=True):
-                st.write(transcript)
-        with tab2:
             st.download_button(
-                "Download transcriptie als TXT",
+                "⬇️ Download transcriptie (TXT)",
                 data=transcript,
                 file_name="transcript.txt",
                 mime="text/plain"
             )
+        except Exception as e:
+            st.error(f"Transcriptie mislukt: {e}")
 
 # ======================================
 # Analyse pagina
