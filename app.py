@@ -13,6 +13,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"  # sidebar standaard dicht
 )
 
+import streamlit as st
+
+# Toon wat er in secrets binnenkomt
+raw = st.secrets.get("groq", {}).get("api_key", None)
+st.write("Raw secret:", repr(raw))
+
 # ============================================================
 # Groq client init (werkt in zowel Cloud als Codespaces/lokaal)
 # ============================================================
