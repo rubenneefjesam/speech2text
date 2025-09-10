@@ -55,14 +55,13 @@ elif page == "Upload & Transcriptie":
     # 1) Audio upload + transcriptie
     audio_file = st.file_uploader("🎵 Upload audio", type=["wav", "mp3", "m4a"])
     transcript = st.session_state.get("transcript", "")
-
     if audio_file:
         st.audio(audio_file)
         st.info("Transcriberen…")
         try:
             res = client.audio.transcriptions.create(
-                model="whisper-large-v3",                   # of: whisper-large-v3-turbo
-                file=(audio_file.name, audio_file.read())   # (naam, bytes)
+                model="whisper-large-v3",
+                file=(audio_file.name, audio_file.read())
             )
             transcript = res.text
             st.session_state["transcript"] = transcript
@@ -70,17 +69,10 @@ elif page == "Upload & Transcriptie":
             st.success("Transcriptie afgerond ✅")
             st.write(transcript)
             st.download_button("⬇️ Download (TXT)", transcript, "transcript.txt", "text/plain")
-
-            st.subheader("📝 Volledige transcriptie (ongewijzigd)")
-            st.text(transcript)
-
-            st.subheader("📄 Toegevoegde context (zoals geüpload)")
-            st.text(context_text if context_text else "— geen context geüpload —")
-
         except Exception as e:
             st.error(f"Transcriptie mislukt: {e}")
 
-    # 2) Context upload (los zichtbaar)
+    # 2) Context upload + preview (nog geen verrijking)
     context_file = st.file_uploader("📑 Upload extra context (TXT/JSON)", type=["txt", "json"])
     context_text = ""
     if context_file:
@@ -90,24 +82,26 @@ elif page == "Upload & Transcriptie":
         else:
             context_text = context_file.read().decode("utf-8", errors="ignore")
 
-        st.subheader("📄 Toegevoegde context")
-        st.text(context_text[:500] + ("…" if len(context_text) > 500 else ""))
+        st.subheader("📄 Toegevoegde context (zoals geüpload)")
+        st.text(context_text[:800] + ("…" if len(context_text) > 800 else ""))
 
-    # 3) Verrijk pas na klik
+   # 3) Verrijk pas na klik (context verplicht)
     if transcript and context_text.strip():
-        if st.button("✅ Combineer transcript + context"):
-            st.info("Verrijken met context…")
-            enrich = client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=[
-                    {"role": "system", "content": "Je bent een assistent die transcripties verrijkt met context. Maak duidelijke notulen met acties, besluiten en open punten."},
-                    {"role": "user", "content": f"CONTEXT:\n{context_text}\n\nTRANSCRIPT:\n{transcript}\n\nMaak 1 samengestelde, gestructureerde output."}
-                ]
+        if st.button("✅ Maak Verrijkte transcriptie"):
+            combined = (
+                f"{transcript.rstrip()}\n\n"
+                "------------------------------\n"
+                "AANVULLING / CONTEXT:\n"
+                f"{context_text}"
             )
-            enriched = enrich.choices[0].message.content
-            st.subheader("🧠 Verrijkte notulen")
-            st.write(enriched)
-            st.download_button("⬇️ Download verrijkte notulen (TXT)", enriched, "notulen_verrijkt.txt", "text/plain")
+            st.subheader("🧠 Verrijkte transcriptie")
+            st.text(combined)
+            st.download_button(
+                "⬇️ Download verrijkte transcriptie (TXT)",
+                combined,
+                "verrijkte_transcriptie.txt",
+                "text/plain"
+            )
 
 # ======================================
 # Analyse pagina
