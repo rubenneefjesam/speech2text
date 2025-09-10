@@ -9,15 +9,16 @@ from groq import Groq
 st.set_page_config(
     page_title="Speech2Text",
     page_icon="🎤",
-    layout="wide",          # meer ruimte
-    initial_sidebar_state="collapsed"  # sidebar standaard dicht
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-import streamlit as st
-
-# Toon wat er in secrets binnenkomt
-raw = st.secrets.get("groq", {}).get("api_key", None)
-st.write("Raw secret:", repr(raw))
+# ─── Debug Secrets ─────────────────────────────────────────────
+st.write("Alle secrets:", st.secrets)
+st.write("st.secrets['groq']:", repr(st.secrets.get("groq")))
+st.write("st.secrets['groq']['api_key']:", repr(
+    st.secrets.get("groq", {}).get("api_key")
+))
 
 # ============================================================
 # Groq client init (werkt in zowel Cloud als Codespaces/lokaal)
