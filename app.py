@@ -6,7 +6,21 @@ from io import StringIO
 import streamlit as st
 from groq import Groq
 
-st.set_page_config(page_title="Speech2Text Demo", layout="wide")
+st.set_page_config(
+    page_title="Speech2Text",
+    page_icon="🎤",
+    layout="wide",          # meer ruimte
+    initial_sidebar_state="collapsed"  # sidebar standaard dicht
+)
+
+st.markdown("""
+<style>
+/* Cards: zachte rand + padding */
+.block-container { padding-top: 2rem; }
+.stMarkdown h2, .stMarkdown h3 { margin-top: 1.2rem; }
+div[data-testid="stNotification"] { border-radius: 12px; }
+</style>
+""", unsafe_allow_html=True)
 
 # ============================================================
 # Groq client init (werkt in zowel Cloud als Codespaces/lokaal)
@@ -49,7 +63,7 @@ if page == "Home":
 # ======================================
 elif page == "Upload & Transcriptie":
     st.title("📂 Upload je audio + context")
-
+    st.subheader("🎵 Upload audio")
     # transcript & context altijd initialiseren
     transcript = st.session_state.get("transcript", "")
     context_text = ""
