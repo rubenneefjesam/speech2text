@@ -16,24 +16,38 @@ st.set_page_config(
 # ============================================================
 # Groq client init (werkt in zowel Cloud als Codespaces/lokaal)
 # ============================================================
-st.write("Key ok?", True)
+import os
+import streamlit as st
+from groq import Groq
 
+# (1) Functie om de juiste key op te halen
 def get_groq_client():
-    key = (os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY") or "").strip()
-    if not key:
-        st.error("⚠️ GROQ_API_KEY niet gevonden (ENV of .streamlit/secrets.toml).")
-        st.stop()
-    return Groq(api_key=key)   # << dit is de fix
+    # eerst: omgevingsvariabele
+    key = os.getenv("GROQ_API_KEY", "").strip()
 
+    # daarna: secrets.toml [groq].api_key
+    if not key:
+        key = st.secrets.get("groq", {}).get("api_key", "").strip()
+
+    # als we nog steeds geen key hebben: stoppen
+    if not key:
+        st.error("⚠️ Groq API key niet gevonden. Voeg in Secrets onder [groq] api_key toe.")
+        st.stop()
+
+    # teruggeven van de client
+    return Groq(api_key=key)
+
+# (2) Maak de client aan
 client = get_groq_client()
 
+# (3) Lichte test-call om te checken of de key écht werkt
 try:
     models = client.models.list()
     st.success(f"API key werkt ✅ – aantal modellen gevonden: {len(models.data)}")
 except Exception as e:
     st.error(f"API key test faalde ❌: {e}")
     st.stop()
-    
+
 # ======================================
 # Sidebar navigatie
 # ======================================
