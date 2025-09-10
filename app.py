@@ -86,22 +86,28 @@ elif page == "Upload & Transcriptie":
         st.text(context_text[:800] + ("…" if len(context_text) > 800 else ""))
 
    # 3) Verrijk pas na klik (context verplicht)
-    if transcript and context_text.strip():
-        if st.button("✅ Maak Verrijkte transcriptie"):
-            combined = (
-                f"{transcript.rstrip()}\n\n"
-                "------------------------------\n"
-                "AANVULLING / CONTEXT:\n"
-                f"{context_text}"
-            )
-            st.subheader("🧠 Verrijkte transcriptie")
-            st.text(combined)
-            st.download_button(
-                "⬇️ Download verrijkte transcriptie (TXT)",
-                combined,
-                "verrijkte_transcriptie.txt",
-                "text/plain"
-            )
+if transcript and context_text.strip():
+    if st.button("✅ Combine record with context to a new transcript"):
+        st.info("Bezig met combineren…")
+        enrich = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            temperature=0.3,
+            messages=[
+                {"role": "system", "content":
+                 "Combineer het transcript met de extra context. "
+                 "Maak er één vloeiende, verbeterde transcriptie van in het Nederlands."},
+                {"role": "user", "content":
+                 f"Transcript:\n{transcript}\n\nContext:\n{context_text}\n\n"
+                 "Geef de gecombineerde versie als doorlopende tekst."}
+            ]
+        )
+        enriched = enrich.choices[0].message.content
+
+        st.subheader("🧠 Verrijkte transcriptie")
+        st.write(enriched)
+        st.download_button("⬇️ Download verrijkte transcriptie (TXT)",
+                           enriched, "verrijkte_transcriptie.txt", "text/plain")
+
 
 # ======================================
 # Analyse pagina
