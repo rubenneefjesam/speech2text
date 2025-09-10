@@ -31,22 +31,26 @@ page = st.sidebar.radio("📑 Pagina", ["Home", "Upload & Transcriptie", "Analys
 # ======================================
 if page == "Home":
     st.title("✨ Welkom bij Speech2Text")
-    st.markdown(
-        """
-        Met deze demo kun je eenvoudig een **audiobestand** uploaden en 
-        een **verrijkte transcriptie** terugkrijgen.  
+    st.markdown("""
+    Met deze demo kun je eenvoudig een **audiobestand** uploaden en 
+    een **verrijkte transcriptie** terugkrijgen.  
 
-        🔹 Upload je bestand via de **Upload & Transcriptie** pagina  
-        🔹 Voeg context en definities toe om het transcript slimmer te maken  
-        🔹 Bekijk woordfrequenties en statistieken bij **Analyse**  
-        🔹 Leer meer bij **Over**  
-        """
-    )
+    🔹 Upload je bestand via de **Upload & Transcriptie** pagina  
+    🔹 Voeg context en definities toe om het transcript slimmer te maken  
+    🔹 Bekijk woordfrequenties en statistieken bij **Analyse**  
+    🔹 Leer meer bij **Over**  
+    """)
     st.success("Kies links een pagina om te starten!")
 
 # ======================================
 # Upload & Transcriptie pagina
 # ======================================
+elif page == "Upload & Transcriptie":
+    st.title("📂 Upload je audio + context")
+
+    # transcript & context altijd initialiseren
+    transcript = st.session_state.get("transcript", "")
+    context_text = ""
 
     # 1) Audio upload + transcriptie
     audio_file = st.file_uploader("🎵 Upload audio", type=["wav", "mp3", "m4a"])
@@ -79,7 +83,7 @@ if page == "Home":
         st.subheader("📄 Toegevoegde context (zoals geüpload)")
         st.text(context_text[:800] + ("…" if len(context_text) > 800 else ""))
 
-    # 3) Combineer pas na klik (en alleen als beide aanwezig zijn)
+    # 3) Combineer pas na klik
     if transcript.strip() and context_text.strip():
         if st.button("✅ Combine record with context to a new transcript"):
             st.info("Bezig met combineren…")
@@ -104,7 +108,7 @@ if page == "Home":
                 "verrijkte_transcriptie.txt",
                 "text/plain"
             )
-            
+
 # ======================================
 # Analyse pagina
 # ======================================
