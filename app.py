@@ -27,6 +27,13 @@ def get_groq_client():
 
 client = get_groq_client()
 
+try:
+    models = client.models.list()
+    st.success(f"API key werkt ✅ – aantal modellen gevonden: {len(models.data)}")
+except Exception as e:
+    st.error(f"API key test faalde ❌: {e}")
+    st.stop()
+    
 # ======================================
 # Sidebar navigatie
 # ======================================
