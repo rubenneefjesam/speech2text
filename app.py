@@ -44,8 +44,6 @@ if page == "Home":
     )
     st.success("Kies links een pagina om te starten!")
 
-    st.header("Transcribeer audio met Groq Whisper v3")
-
 # ======================================
 # Upload & Transcriptie pagina
 # ======================================
