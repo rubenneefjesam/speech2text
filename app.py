@@ -20,33 +20,32 @@ import os
 import streamlit as st
 from groq import Groq
 
-# (1) Functie om de juiste key op te halen
 def get_groq_client():
     # eerst: omgevingsvariabele
     key = os.getenv("GROQ_API_KEY", "").strip()
-
     # daarna: secrets.toml [groq].api_key
     if not key:
         key = st.secrets.get("groq", {}).get("api_key", "").strip()
+    return key
 
-    # als we nog steeds geen key hebben: stoppen
-    if not key:
-        st.error("⚠️ Groq API key niet gevonden. Voeg in Secrets onder [groq] api_key toe.")
-        st.stop()
+# 1) Haal key op
+API_KEY = get_groq_client()
 
-    # teruggeven van de client
-    return Groq(api_key=key)
+# 2) Maak client (zonder te stopen bij missende key)
+client = None
+if API_KEY:
+    client = Groq(api_key=API_KEY)
+else:
+    st.warning("⚠️ Geen Groq-key gevonden. Transcriptie en verrijken gaan niet werken.")
 
-# (2) Maak de client aan
-client = get_groq_client()
-
-# (3) Lichte test-call om te checken of de key écht werkt
-try:
-    models = client.models.list()
-    st.success(f"API key werkt ✅ – aantal modellen gevonden: {len(models.data)}")
-except Exception as e:
-    st.error(f"API key test faalde ❌: {e}")
-    st.stop()
+# 3) Lichte test-call, maar alleen een warning (niet st.stop())
+if client:
+    try:
+        models = client.models.list()
+        st.success(f"API key werkt ✅ – {len(models.data)} modellen beschikbaar")
+    except Exception as e:
+        st.warning("Groq API key ongeldig, transcriptie kan mislukken.")
+        # optioneel: st.write(e)  om de dev-melding even te zien, maar kun je weglaten
 
 # ======================================
 # Sidebar navigatie
