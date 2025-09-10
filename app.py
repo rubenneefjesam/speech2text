@@ -54,44 +54,63 @@ if page == "Home":
 # ======================================
 elif page == "Upload & Transcriptie":
     st.title("📂 Upload je audio + context")
-    st.subheader("🎵 Upload audio")
+
     # transcript & context altijd initialiseren
     transcript = st.session_state.get("transcript", "")
     context_text = ""
 
-    # 1) Audio upload + transcriptie
-    audio_file = st.file_uploader("🎵 Upload audio", type=["wav", "mp3", "m4a"])
-    if audio_file:
-        st.audio(audio_file)
-        st.info("Transcriberen…")
-        try:
-            res = client.audio.transcriptions.create(
-                model="whisper-large-v3",
-                file=(audio_file.name, audio_file.read())
-            )
-            transcript = res.text
-            st.session_state["transcript"] = transcript
+    # Maak 2 kolommen naast elkaar
+    col1, col2 = st.columns(2)
 
-            st.success("Transcriptie afgerond ✅")
-            st.write(transcript)
-            st.download_button("⬇️ Download (TXT)", transcript, "transcript.txt", "text/plain")
-        except Exception as e:
-            st.error(f"Transcriptie mislukt: {e}")
+    # ------------------------
+    # Kolom 1: Audio upload + transcript
+    # ------------------------
+    with col1:
+        st.subheader("🎵 Upload audio")
+        audio_file = st.file_uploader("🎵 Upload audio", type=["wav", "mp3", "m4a"])
+        if audio_file:
+            st.audio(audio_file)
+            st.info("Transcriberen…")
+            try:
+                res = client.audio.transcriptions.create(
+                    model="whisper-large-v3",
+                    file=(audio_file.name, audio_file.read())
+                )
+                transcript = res.text
+                st.session_state["transcript"] = transcript
 
-    # 2) Context upload + preview
-    context_file = st.file_uploader("📑 Upload extra context (TXT/JSON)", type=["txt", "json"])
-    if context_file:
-        if context_file.type == "application/json":
-            import json as _json
-            context_text = _json.dumps(_json.load(context_file), ensure_ascii=False, indent=2)
-        else:
-            context_text = context_file.read().decode("utf-8", errors="ignore")
+                st.success("Transcriptie afgerond ✅")
+                st.write(transcript)
+                st.download_button(
+                    "⬇️ Download (TXT)",
+                    transcript,
+                    "transcript.txt",
+                    "text/plain"
+                )
+            except Exception as e:
+                st.error(f"Transcriptie mislukt: {e}")
 
-        st.subheader("📄 Toegevoegde context (zoals geüpload)")
-        st.text(context_text[:800] + ("…" if len(context_text) > 800 else ""))
+    # ------------------------
+    # Kolom 2: Context upload + preview
+    # ------------------------
+    with col2:
+        st.subheader("📑 Upload extra context (TXT/JSON)")
+        context_file = st.file_uploader("📑 Upload extra context", type=["txt", "json"])
+        if context_file:
+            if context_file.type == "application/json":
+                import json as _json
+                context_text = _json.dumps(_json.load(context_file), ensure_ascii=False, indent=2)
+            else:
+                context_text = context_file.read().decode("utf-8", errors="ignore")
 
-    # 3) Combineer pas na klik
+            st.subheader("📄 Toegevoegde context (zoals geüpload)")
+            st.text(context_text[:800] + ("…" if len(context_text) > 800 else ""))
+
+    # ------------------------
+    # Combineer pas na klik (volledige breedte onder kolommen)
+    # ------------------------
     if transcript.strip() and context_text.strip():
+        st.divider()
         if st.button("✅ Combine record with context to a new transcript"):
             st.info("Bezig met combineren…")
             enrich = client.chat.completions.create(
