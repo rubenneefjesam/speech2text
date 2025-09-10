@@ -51,7 +51,20 @@ if page == "Home":
 # ======================================
 elif page == "Upload & Transcriptie":
     st.title("📂 Upload je audio + context")
+
+    # Audio upload
     audio_file = st.file_uploader("🎵 Upload audio", type=["wav","mp3","m4a"])
+
+    # Context upload
+    context_file = st.file_uploader("📑 Upload extra context (TXT/JSON)", type=["txt","json"])
+
+    context_text = ""
+    if context_file:
+        if context_file.type == "application/json":
+            import json as _json
+            context_text = _json.dumps(_json.load(context_file), ensure_ascii=False, indent=2)
+        else:
+            context_text = context_file.read().decode("utf-8", errors="ignore")
 
     if audio_file:
         st.audio(audio_file)
@@ -59,24 +72,31 @@ elif page == "Upload & Transcriptie":
         try:
             res = client.audio.transcriptions.create(
                 model="whisper-large-v3",                   # of whisper-large-v3-turbo
-                file=(audio_file.name, audio_file.read())   # exact zoals in transcribe_test.py
+                file=(audio_file.name, audio_file.read())
             )
             transcript = res.text
             st.success("Transcriptie afgerond ✅")
             st.write(transcript)
             st.download_button("⬇️ Download (TXT)", transcript, "transcript.txt", "text/plain")
+
+            # 👉 Verrijking met context (optioneel)
+            if context_text.strip():
+                st.info("Verrijken met context…")
+                enrich = client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[
+                        {"role": "system", "content": "Je bent een assistent die transcripties verrijkt met context. Maak duidelijke notulen met acties, besluiten en open punten."},
+                        {"role": "user", "content": f"CONTEXT:\n{context_text}\n\nTRANSCRIPT:\n{transcript}\n\nMaak 1 samengestelde, gestructureerde output."}
+                    ]
+                )
+                enriched = enrich.choices[0].message.content
+                st.subheader("🧠 Verrijkte notulen")
+                st.write(enriched)
+                st.download_button("⬇️ Download verrijkte notulen (TXT)", enriched, "notulen_verrijkt.txt", "text/plain")
+
         except Exception as e:
             st.error(f"Transcriptie mislukt: {e}")
 
-context_file = st.file_uploader("📑 Upload extra context (TXT/JSON)", type=["txt","json"])
-
-context_text = ""
-if context_file:
-    if context_file.type == "application/json":
-        import json as _json
-        context_text = _json.dumps(_json.load(context_file), ensure_ascii=False, indent=2)
-    else:
-        context_text = context_file.read().decode("utf-8", errors="ignore")
 # ======================================
 # Analyse pagina
 # ======================================
