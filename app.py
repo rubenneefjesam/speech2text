@@ -70,6 +70,13 @@ elif page == "Upload & Transcriptie":
             st.success("Transcriptie afgerond ✅")
             st.write(transcript)
             st.download_button("⬇️ Download (TXT)", transcript, "transcript.txt", "text/plain")
+
+            st.subheader("📝 Volledige transcriptie (ongewijzigd)")
+            st.text(transcript)
+
+            st.subheader("📄 Toegevoegde context (zoals geüpload)")
+            st.text(context_text if context_text else "— geen context geüpload —")
+
         except Exception as e:
             st.error(f"Transcriptie mislukt: {e}")
 
