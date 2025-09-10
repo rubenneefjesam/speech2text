@@ -48,16 +48,8 @@ if page == "Home":
 # Upload & Transcriptie pagina
 # ======================================
 
-elif page == "Upload & Transcriptie":
-    st.title("📂 Upload je audio + context")
-
-    # transcript & context altijd initialiseren
-    transcript = st.session_state.get("transcript", "")
-    context_text = ""
-    
     # 1) Audio upload + transcriptie
     audio_file = st.file_uploader("🎵 Upload audio", type=["wav", "mp3", "m4a"])
-    transcript = st.session_state.get("transcript", "")
     if audio_file:
         st.audio(audio_file)
         st.info("Transcriberen…")
@@ -75,9 +67,8 @@ elif page == "Upload & Transcriptie":
         except Exception as e:
             st.error(f"Transcriptie mislukt: {e}")
 
-    # 2) Context upload + preview (nog geen verrijking)
+    # 2) Context upload + preview
     context_file = st.file_uploader("📑 Upload extra context (TXT/JSON)", type=["txt", "json"])
-    context_text = ""
     if context_file:
         if context_file.type == "application/json":
             import json as _json
@@ -88,30 +79,32 @@ elif page == "Upload & Transcriptie":
         st.subheader("📄 Toegevoegde context (zoals geüpload)")
         st.text(context_text[:800] + ("…" if len(context_text) > 800 else ""))
 
-   # 3) Verrijk pas na klik (context verplicht)
-if transcript and context_text.strip():
-    if st.button("✅ Combine record with context to a new transcript"):
-        st.info("Bezig met combineren…")
-        enrich = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            temperature=0.3,
-            messages=[
-                {"role": "system", "content":
-                 "Combineer het transcript met de extra context. "
-                 "Maak er één vloeiende, verbeterde transcriptie van in het Nederlands."},
-                {"role": "user", "content":
-                 f"Transcript:\n{transcript}\n\nContext:\n{context_text}\n\n"
-                 "Geef de gecombineerde versie als doorlopende tekst."}
-            ]
-        )
-        enriched = enrich.choices[0].message.content
-
-        st.subheader("🧠 Verrijkte transcriptie")
-        st.write(enriched)
-        st.download_button("⬇️ Download verrijkte transcriptie (TXT)",
-                           enriched, "verrijkte_transcriptie.txt", "text/plain")
-
-
+    # 3) Combineer pas na klik (en alleen als beide aanwezig zijn)
+    if transcript.strip() and context_text.strip():
+        if st.button("✅ Combine record with context to a new transcript"):
+            st.info("Bezig met combineren…")
+            enrich = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                temperature=0.3,
+                messages=[
+                    {"role": "system", "content":
+                     "Combineer het transcript met de extra context. "
+                     "Maak er één vloeiende, verbeterde transcriptie van in het Nederlands."},
+                    {"role": "user", "content":
+                     f"Transcript:\n{transcript}\n\nContext:\n{context_text}\n\n"
+                     "Geef de gecombineerde versie als doorlopende tekst."}
+                ]
+            )
+            enriched = enrich.choices[0].message.content
+            st.subheader("🧠 Verrijkte transcriptie")
+            st.write(enriched)
+            st.download_button(
+                "⬇️ Download verrijkte transcriptie (TXT)",
+                enriched,
+                "verrijkte_transcriptie.txt",
+                "text/plain"
+            )
+            
 # ======================================
 # Analyse pagina
 # ======================================
