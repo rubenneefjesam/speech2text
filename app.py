@@ -56,15 +56,18 @@ elif page == "Upload & Transcriptie":
     audio_file = st.file_uploader("🎵 Upload audio", type=["wav","mp3","m4a"])
 
     # Context upload
-    context_file = st.file_uploader("📑 Upload extra context (TXT/JSON)", type=["txt","json"])
+context_file = st.file_uploader("📑 Upload extra context (TXT/JSON)", type=["txt","json"])
 
-    context_text = ""
-    if context_file:
-        if context_file.type == "application/json":
-            import json as _json
-            context_text = _json.dumps(_json.load(context_file), ensure_ascii=False, indent=2)
-        else:
-            context_text = context_file.read().decode("utf-8", errors="ignore")
+context_text = ""
+if context_file:
+    if context_file.type == "application/json":
+        import json as _json
+        context_text = _json.dumps(_json.load(context_file), ensure_ascii=False, indent=2)
+    else:
+        context_text = context_file.read().decode("utf-8", errors="ignore")
+
+    st.subheader("📄 Toegevoegde context")
+    st.text(context_text[:500] + ("…" if len(context_text) > 500 else ""))
 
     if audio_file:
         st.audio(audio_file)
