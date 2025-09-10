@@ -13,15 +13,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"  # sidebar standaard dicht
 )
 
-st.markdown("""
-<style>
-/* Cards: zachte rand + padding */
-.block-container { padding-top: 2rem; }
-.stMarkdown h2, .stMarkdown h3 { margin-top: 1.2rem; }
-div[data-testid="stNotification"] { border-radius: 12px; }
-</style>
-""", unsafe_allow_html=True)
-
 # ============================================================
 # Groq client init (werkt in zowel Cloud als Codespaces/lokaal)
 # ============================================================
