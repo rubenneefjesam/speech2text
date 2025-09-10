@@ -46,24 +46,6 @@ if page == "Home":
 
     st.header("Transcribeer audio met Groq Whisper v3")
 
-client = get_groq_client()
-st.write("Key gevonden?", True)  # debug: laat zien dat key is geladen
-
-uploaded = st.file_uploader("Upload audio", type=["mp3", "wav", "m4a"])
-if uploaded:
-    st.info("Transcriberen…")
-    audio_bytes = uploaded.read()
-    try:
-        res = client.audio.transcriptions.create(
-            model="whisper-large-v3",              # of: "whisper-large-v3-turbo"
-            file=(uploaded.name, audio_bytes)      # (bestandsnaam, bytes) is verplicht
-            # language="nl",                       # optioneel
-        )
-        st.success("Klaar!")
-        st.write(res.text)
-    except Exception as e:
-        st.error(f"Transcriptie mislukt: {e}")
-
 # ======================================
 # Upload & Transcriptie pagina
 # ======================================
