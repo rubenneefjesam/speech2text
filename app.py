@@ -6,6 +6,8 @@ from io import StringIO
 import streamlit as st
 from groq import Groq
 
+st.set_page_config(page_title="Speech2Text Demo", layout="wide")
+
 # ============================================================
 # Groq client init (werkt in zowel Cloud als Codespaces/lokaal)
 # ============================================================
