@@ -47,9 +47,14 @@ if page == "Home":
 # ======================================
 # Upload & Transcriptie pagina
 # ======================================
+
 elif page == "Upload & Transcriptie":
     st.title("📂 Upload je audio + context")
 
+    # transcript & context altijd initialiseren
+    transcript = st.session_state.get("transcript", "")
+    context_text = ""
+    
     # 1) Audio upload + transcriptie
     audio_file = st.file_uploader("🎵 Upload audio", type=["wav", "mp3", "m4a"])
     transcript = st.session_state.get("transcript", "")
